@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Address Book</title>
+<style>
+body {
+  font-family: Arial;
+  margin: 0;
+  display: flex;
+  height: 100vh;
+}
+.sidebar {
+  width: 280px;
+  background: #f2f2f2;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+}
+.contact-item {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.contact-item:hover {
+  background: #e6e6e6;
+}
+.favorite {
+  color: gold;
+  font-weight: bold;
+}
+.main {
+  flex: 1;
+  padding: 20px;
+}
+button {
+  padding: 8px 12px;
+  margin-right: 5px;
+}
+.section input {
+  width: 100%;
+  margin: 5px 0;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h3 style="text-align:center;">Contacts</h3>
+  <button onclick="addNewContact()">+ Add Contact</button>
+  <div id="contactList"></div>
+</div>
+
+<div class="main">
+  <h2>Contact Details</h2>
+  <div id="detailView">Select a contact...</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+let contacts = [];
+let selectedId = null;
+
+function renderContacts() {
+  const list = document.getElementById("contactList");
+  list.innerHTML = "";
+
+  const sorted = [...contacts].sort((a, b) => b.isFavorite - a.isFavorite);
+
+  sorted.forEach(c => {
+    list.innerHTML += `
+      <div class="contact-item" onclick="selectContact(${c.id})">
+        <span>${c.name}</span>
+        <span class="${c.isFavorite ? 'favorite' : ''}">★</span>
+      </div>`;
+  });
+}
+
+function addNewContact() {
+  const id = Date.now();
+  contacts.push({
+    id, name: "New Contact",
+    phones: [""],
+    emails: [""],
+    addresses: [""],
+    social: [""],
+    isFavorite: false
+  });
+  renderContacts();
+  selectContact(id);
+}
+
+function saveContact(id) {
+  const name = document.getElementById("name").value;
+  const phones = document.getElementById("phones").value.split(",");
+  const emails = document.getElementById("emails").value.split(",");
+  const addresses = document.getElementById("addresses").value.split(",");
+  const social = document.getElementById("social").value.split(",");
+
+  const c = contacts.find(a => a.id === id);
+  c.name = name;
+  c.phones = phones;
+  c.emails = emails;
+  c.addresses = addresses;
+  c.social = social;
+
+  renderContacts();
+}
+
+function deleteContact(id) {
+  contacts = contacts.filter(c => c.id !== id);
+  document.getElementById("detailView").innerHTML = "Select a contact...";
+  renderContacts();
+}
+
+function toggleFavorite(id) {
+  const c = contacts.find(c => c.id === id);
+  c.isFavorite = !c.isFavorite;
+  renderContacts();
+  selectContact(id);
+}
+
+function selectContact(id) {
+  selectedId = id;
+  const c = contacts.find(a => a.id === id);
+
+  document.getElementById("detailView").innerHTML = `
+    <div class="section">
+      <label>Name:</label>
+      <input id="name" value="${c.name}">
+      
+      <label>Phones (comma separated):</label>
+      <input id="phones" value="${c.phones.join(',')}">
+
+      <label>Emails:</label>
+      <input id="emails" value="${c.emails.join(',')}">
+
+      <label>Addresses:</label>
+      <input id="addresses" value="${c.addresses.join(',')}">
+
+      <label>Social:</label>
+      <input id="social" value="${c.social.join(',')}">
+
+      <br><br>
+      <button onclick="saveContact(${id})">Save</button>
+      <button onclick="deleteContact(${id})">Delete</button>
+      <button onclick="toggleFavorite(${id})">★ Favorite</button>
+    </div>
+  `;
+}
+
+/* ===== Export to Excel ===== */
+function exportExcel() {
+  const ws = XLSX.utils.json_to_sheet(contacts);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Contacts");
+  XLSX.writeFile(wb, "address_book.xlsx");
+}
+
+/* ===== Import Excel ===== */
+function importExcel(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, {type: 'array'});
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    contacts = XLSX.utils.sheet_to_json(sheet);
+    renderContacts();
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+</script>
+
+<div style="position:absolute; top:10px; right:20px;">
+  <button onclick="exportExcel()">Export Excel</button>
+  <input type="file" accept=".xlsx" onchange="importExcel(event)">
+</div>
+
+</body>
+</html>
